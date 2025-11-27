@@ -7,6 +7,7 @@ const {
   getClassWiseCollectionReport,
   getMonthlyCollectionReport,
   getDefaultersReport,
+  getReportsSummary,
   generateCustomReport
 } = require('../controllers/reportController');
 const {
@@ -25,6 +26,7 @@ router.use(authenticateToken);
 router.use(authorizeAccountant);
 
 // Report routes
+router.get('/summary', getReportsSummary);
 router.get('/fee-collection', validateDateRange, getFeeCollectionReport);
 router.get('/outstanding-fees', getOutstandingFeesReport);
 router.get('/payment-history', validatePagination, validateDateRange, getPaymentHistoryReport);

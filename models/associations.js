@@ -6,6 +6,10 @@ const Payment = require('./Payment');
 const FeeBalance = require('./FeeBalance');
 
 // User associations
+User.hasOne(Student, {
+  foreignKey: 'user_id',
+  as: 'studentProfile'
+});
 User.hasMany(Student, {
   foreignKey: 'parent_id',
   as: 'children'
@@ -37,6 +41,10 @@ User.hasMany(FeeAssignment, {
 });
 
 // Student associations
+Student.belongsTo(User, {
+  foreignKey: 'user_id',
+  as: 'user'
+});
 Student.belongsTo(User, {
   foreignKey: 'parent_id',
   as: 'parent'

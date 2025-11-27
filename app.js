@@ -12,6 +12,8 @@ const { errorHandler, notFound, requestLogger } = require('./middleware/errorHan
 // Import routes
 const authRoutes = require('./routes/auth');
 const studentRoutes = require('./routes/students');
+const studentPortalRoutes = require('./routes/student');
+const parentPortalRoutes = require('./routes/parent');
 const feeRoutes = require('./routes/fees');
 const paymentRoutes = require('./routes/payments');
 const reportRoutes = require('./routes/reports');
@@ -30,16 +32,32 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
-// Rate limiting
+// Rate limiting - general API limiter
 const limiter = rateLimit({
   windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000, // 15 minutes
-  max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 100, // limit each IP to 100 requests per windowMs
+  max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 500, // limit each IP to 500 requests per windowMs
   message: {
     success: false,
     message: 'Too many requests from this IP, please try again later.'
   },
   standardHeaders: true,
-  legacyHeaders: false
+  legacyHeaders: false,
+  skip: (req) => {
+    // Skip rate limiting for health check
+    return req.path === '/health';
+  }
+});
+
+// More lenient rate limiter for dashboard routes (they make multiple requests)
+const dashboardLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000, // 1 minute
+  max: 50, // 50 requests per minute for dashboard
+  message: {
+    success: false,
+    message: 'Too many dashboard requests, please try again later.'
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
 });
 
 app.use(limiter);
@@ -100,10 +118,12 @@ app.get('/health', (req, res) => {
 // API routes
 app.use('/api/auth', authRoutes);
 app.use('/api/students', studentRoutes);
+app.use('/api/student', studentPortalRoutes); // Student portal routes (for logged-in students)
+app.use('/api/parent', parentPortalRoutes); // Parent portal routes (for logged-in parents)
 app.use('/api/fee-structures', feeRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/reports', reportRoutes);
-app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/dashboard', dashboardLimiter, dashboardRoutes); // Use more lenient limiter for dashboard
 
 // Root endpoint
 app.get('/', (req, res) => {
@@ -112,14 +132,16 @@ app.get('/', (req, res) => {
     message: 'Welcome to Fee Management System API',
     version: '1.0.0',
     documentation: '/api/docs',
-    endpoints: {
-      auth: '/api/auth',
-      students: '/api/students',
-      fees: '/api/fee-structures',
-      payments: '/api/payments',
-      reports: '/api/reports',
-      dashboard: '/api/dashboard'
-    }
+      endpoints: {
+        auth: '/api/auth',
+        students: '/api/students',
+        studentPortal: '/api/student',
+        parentPortal: '/api/parent',
+        fees: '/api/fee-structures',
+        payments: '/api/payments',
+        reports: '/api/reports',
+        dashboard: '/api/dashboard'
+      }
   });
 });
 

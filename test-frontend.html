@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fee Management System - Test Frontend</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input, select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        .success {
+            color: green;
+            background-color: #d4edda;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .error {
+            color: red;
+            background-color: #f8d7da;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .hidden {
+            display: none;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .stat-card {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 6px;
+            text-align: center;
+        }
+        .stat-card h3 {
+            margin: 0 0 10px 0;
+            color: #333;
+        }
+        .stat-card p {
+            margin: 0;
+            font-size: 24px;
+            font-weight: bold;
+            color: #007bff;
+        }
+    </style>
+</head>
+<body>
+    <h1>Fee Management System - Test Frontend</h1>
+    
+    <!-- Connection Test -->
+    <div class="container">
+        <h2>1. Test Backend Connection</h2>
+        <button onclick="testConnection()">Test Connection</button>
+        <div id="connectionResult"></div>
+    </div>
+
+    <!-- Authentication -->
+    <div class="container">
+        <h2>2. Authentication</h2>
+        
+        <!-- Login Form -->
+        <div id="loginSection">
+            <h3>Login</h3>
+            <form id="loginForm">
+                <div class="form-group">
+                    <label for="email">Email:</label>
+                    <input type="email" id="email" value="admin@school.com" required>
+                </div>
+                <div class="form-group">
+                    <label for="password">Password:</label>
+                    <input type="password" id="password" value="admin123" required>
+                </div>
+                <button type="submit">Login</button>
+            </form>
+        </div>
+
+        <!-- User Info (shown after login) -->
+        <div id="userSection" class="hidden">
+            <h3>Logged in as:</h3>
+            <div id="userInfo"></div>
+            <button onclick="logout()">Logout</button>
+        </div>
+        
+        <div id="authResult"></div>
+    </div>
+
+    <!-- Dashboard (requires authentication) -->
+    <div class="container">
+        <h2>3. Dashboard Data</h2>
+        <button onclick="loadDashboard()" id="dashboardBtn" disabled>Load Dashboard</button>
+        <div id="dashboardResult"></div>
+    </div>
+
+    <!-- Students (requires authentication) -->
+    <div class="container">
+        <h2>4. Students Data</h2>
+        <button onclick="loadStudents()" id="studentsBtn" disabled>Load Students</button>
+        <div id="studentsResult"></div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:5000/api';
+        let authToken = localStorage.getItem('token');
+        let currentUser = JSON.parse(localStorage.getItem('user') || 'null');
+
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', function() {
+            if (authToken && currentUser) {
+                showUserSection();
+            }
+        });
+
+        // Test backend connection
+        async function testConnection() {
+            const resultDiv = document.getElementById('connectionResult');
+            resultDiv.innerHTML = '<p>Testing connection...</p>';
+            
+            try {
+                const response = await fetch('http://localhost:5000/health');
+                const data = await response.json();
+                
+                if (data.success) {
+                    resultDiv.innerHTML = `
+                        <div class="success">
+                            <strong>✅ Connection Successful!</strong><br>
+                            Message: ${data.message}<br>
+                            Version: ${data.version}<br>
+                            Timestamp: ${data.timestamp}
+                        </div>
+                    `;
+                } else {
+                    throw new Error('Health check failed');
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="error">
+                        <strong>❌ Connection Failed!</strong><br>
+                        Error: ${error.message}<br>
+                        Make sure your backend is running on port 5000
+                    </div>
+                `;
+            }
+        }
+
+        // Handle login form
+        document.getElementById('loginForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const resultDiv = document.getElementById('authResult');
+            
+            resultDiv.innerHTML = '<p>Logging in...</p>';
+            
+            try {
+                const response = await fetch(`${API_BASE}/auth/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ email, password })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    authToken = data.token;
+                    currentUser = data.user;
+                    
+                    localStorage.setItem('token', authToken);
+                    localStorage.setItem('user', JSON.stringify(currentUser));
+                    
+                    showUserSection();
+                    
+                    resultDiv.innerHTML = `
+                        <div class="success">
+                            <strong>✅ Login Successful!</strong><br>
+                            Welcome, ${currentUser.firstName} ${currentUser.lastName}!
+                        </div>
+                    `;
+                } else {
+                    throw new Error(data.message || 'Login failed');
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="error">
+                        <strong>❌ Login Failed!</strong><br>
+                        Error: ${error.message}
+                    </div>
+                `;
+            }
+        });
+
+        function showUserSection() {
+            document.getElementById('loginSection').classList.add('hidden');
+            document.getElementById('userSection').classList.remove('hidden');
+            document.getElementById('userInfo').innerHTML = `
+                <p><strong>Name:</strong> ${currentUser.firstName} ${currentUser.lastName}</p>
+                <p><strong>Email:</strong> ${currentUser.email}</p>
+                <p><strong>Role:</strong> ${currentUser.role}</p>
+            `;
+            
+            // Enable protected buttons
+            document.getElementById('dashboardBtn').disabled = false;
+            document.getElementById('studentsBtn').disabled = false;
+        }
+
+        function logout() {
+            authToken = null;
+            currentUser = null;
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            
+            document.getElementById('loginSection').classList.remove('hidden');
+            document.getElementById('userSection').classList.add('hidden');
+            document.getElementById('authResult').innerHTML = '';
+            
+            // Disable protected buttons
+            document.getElementById('dashboardBtn').disabled = true;
+            document.getElementById('studentsBtn').disabled = true;
+            
+            // Clear results
+            document.getElementById('dashboardResult').innerHTML = '';
+            document.getElementById('studentsResult').innerHTML = '';
+        }
+
+        // Load dashboard data
+        async function loadDashboard() {
+            const resultDiv = document.getElementById('dashboardResult');
+            resultDiv.innerHTML = '<p>Loading dashboard...</p>';
+            
+            try {
+                const response = await fetch(`${API_BASE}/dashboard/stats`, {
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    const stats = data.data;
+                    resultDiv.innerHTML = `
+                        <div class="success">
+                            <strong>✅ Dashboard Loaded Successfully!</strong>
+                        </div>
+                        <div class="stats-grid">
+                            <div class="stat-card">
+                                <h3>Total Students</h3>
+                                <p>${stats.totalStudents || 0}</p>
+                            </div>
+                            <div class="stat-card">
+                                <h3>Total Collection</h3>
+                                <p>₹${stats.totalCollection || 0}</p>
+                            </div>
+                            <div class="stat-card">
+                                <h3>Pending Dues</h3>
+                                <p>₹${stats.pendingDues || 0}</p>
+                            </div>
+                            <div class="stat-card">
+                                <h3>This Month Collection</h3>
+                                <p>₹${stats.thisMonthCollection || 0}</p>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    throw new Error(data.message || 'Failed to load dashboard');
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="error">
+                        <strong>❌ Dashboard Load Failed!</strong><br>
+                        Error: ${error.message}
+                    </div>
+                `;
+            }
+        }
+
+        // Load students data
+        async function loadStudents() {
+            const resultDiv = document.getElementById('studentsResult');
+            resultDiv.innerHTML = '<p>Loading students...</p>';
+            
+            try {
+                const response = await fetch(`${API_BASE}/students?page=1&limit=5`, {
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    const students = data.data.students;
+                    const pagination = data.data.pagination;
+                    
+                    let studentsHtml = `
+                        <div class="success">
+                            <strong>✅ Students Loaded Successfully!</strong><br>
+                            Showing ${students.length} of ${pagination.total} students
+                        </div>
+                        <div style="margin-top: 15px;">
+                    `;
+                    
+                    students.forEach(student => {
+                        studentsHtml += `
+                            <div style="border: 1px solid #ddd; padding: 10px; margin: 10px 0; border-radius: 4px;">
+                                <strong>${student.firstName} ${student.lastName}</strong><br>
+                                Roll No: ${student.rollNumber}<br>
+                                Class: ${student.class}<br>
+                                Email: ${student.email}
+                            </div>
+                        `;
+                    });
+                    
+                    studentsHtml += '</div>';
+                    resultDiv.innerHTML = studentsHtml;
+                } else {
+                    throw new Error(data.message || 'Failed to load students');
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="error">
+                        <strong>❌ Students Load Failed!</strong><br>
+                        Error: ${error.message}
+                    </div>
+                `;
+            }
+        }
+    </script>
+</body>
+</html>

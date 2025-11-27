@@ -245,22 +245,30 @@ const validatePagination = [
 ];
 
 const validateDateRange = [
+  query('start_date')
+    .optional()
+    .isISO8601()
+    .withMessage('Start date must be a valid date (YYYY-MM-DD)'),
+  query('end_date')
+    .optional()
+    .isISO8601()
+    .withMessage('End date must be a valid date (YYYY-MM-DD)'),
   query('startDate')
     .optional()
     .isISO8601()
-    .withMessage('Start date must be a valid date'),
+    .withMessage('Start date must be a valid date (YYYY-MM-DD)'),
   query('endDate')
     .optional()
     .isISO8601()
-    .withMessage('End date must be a valid date'),
+    .withMessage('End date must be a valid date (YYYY-MM-DD)'),
   query('fromDate')
     .optional()
     .isISO8601()
-    .withMessage('From date must be a valid date'),
+    .withMessage('From date must be a valid date (YYYY-MM-DD)'),
   query('toDate')
     .optional()
     .isISO8601()
-    .withMessage('To date must be a valid date'),
+    .withMessage('To date must be a valid date (YYYY-MM-DD)'),
   handleValidationErrors
 ];
 

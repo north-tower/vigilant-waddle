@@ -22,94 +22,93 @@ const getFeeCollectionReport = asyncHandler(async (req, res) => {
   if (academic_year) feeStructureWhereClause.academic_year = academic_year;
   if (studentClass) studentWhereClause.class = studentClass;
 
+  // Build include arrays with conditional where clauses
+  // Only set required: true if we have filters, otherwise use left join
+  const baseIncludes = [
+    {
+      model: Student,
+      as: 'student',
+      attributes: [],
+      ...(Object.keys(studentWhereClause).length > 0 && { 
+        where: studentWhereClause,
+        required: true 
+      })
+    },
+    {
+      model: FeeStructure,
+      as: 'feeStructure',
+      attributes: [],
+      ...(Object.keys(feeStructureWhereClause).length > 0 && { 
+        where: feeStructureWhereClause,
+        required: true 
+      })
+    }
+  ];
+
   // Get total collection
   const totalCollection = await Payment.sum('amount_paid', {
     where: whereClause,
-    include: [
-      {
-        model: Student,
-        as: 'student',
-        where: studentWhereClause
-      },
-      {
-        model: FeeStructure,
-        as: 'feeStructure',
-        where: feeStructureWhereClause
-      }
-    ]
+    include: baseIncludes
   }) || 0;
 
-  // Get collection by fee type
+  // Get collection by fee type using raw query to avoid GROUP BY issues
   const collectionByFeeType = await Payment.findAll({
     where: whereClause,
-    include: [
-      {
-        model: Student,
-        as: 'student',
-        where: studentWhereClause
-      },
-      {
-        model: FeeStructure,
-        as: 'feeStructure',
-        where: feeStructureWhereClause,
-        attributes: ['fee_type']
-      }
-    ],
+    include: baseIncludes,
     attributes: [
-      [Sequelize.col('feeStructure.fee_type'), 'fee_type'],
-      [Sequelize.fn('COUNT', Sequelize.col('Payment.id')), 'count'],
-      [Sequelize.fn('SUM', Sequelize.col('Payment.amount_paid')), 'total']
+      [Sequelize.literal('`feeStructure`.`fee_type`'), 'fee_type'],
+      [Sequelize.fn('COUNT', Sequelize.literal('`Payment`.`id`')), 'count'],
+      [Sequelize.fn('SUM', Sequelize.literal('`Payment`.`amount_paid`')), 'total']
     ],
-    group: ['feeStructure.fee_type']
+    group: [Sequelize.literal('`feeStructure`.`fee_type`')],
+    raw: true
   });
 
   // Get collection by class
   const collectionByClass = await Payment.findAll({
     where: whereClause,
-    include: [
-      {
-        model: Student,
-        as: 'student',
-        where: studentWhereClause,
-        attributes: ['class']
-      },
-      {
-        model: FeeStructure,
-        as: 'feeStructure',
-        where: feeStructureWhereClause
-      }
-    ],
+    include: baseIncludes,
     attributes: [
-      [Sequelize.col('student.class'), 'class'],
-      [Sequelize.fn('COUNT', Sequelize.col('Payment.id')), 'count'],
-      [Sequelize.fn('SUM', Sequelize.col('Payment.amount_paid')), 'total']
+      [Sequelize.literal('`student`.`class`'), 'class'],
+      [Sequelize.fn('COUNT', Sequelize.literal('`Payment`.`id`')), 'count'],
+      [Sequelize.fn('SUM', Sequelize.literal('`Payment`.`amount_paid`')), 'total']
     ],
-    group: ['student.class']
+    group: [Sequelize.literal('`student`.`class`')],
+    raw: true
   });
 
   // Get monthly collection trend
   const monthlyCollection = await Payment.findAll({
     where: whereClause,
-    include: [
-      {
-        model: Student,
-        as: 'student',
-        where: studentWhereClause
-      },
-      {
-        model: FeeStructure,
-        as: 'feeStructure',
-        where: feeStructureWhereClause
-      }
-    ],
+    include: baseIncludes,
     attributes: [
-      [Sequelize.fn('DATE_FORMAT', Sequelize.col('Payment.payment_date'), '%Y-%m'), 'month'],
-      [Sequelize.fn('COUNT', Sequelize.col('Payment.id')), 'count'],
-      [Sequelize.fn('SUM', Sequelize.col('Payment.amount_paid')), 'total']
+      [Sequelize.fn('DATE_FORMAT', Sequelize.literal('`Payment`.`payment_date`'), '%Y-%m'), 'month'],
+      [Sequelize.fn('COUNT', Sequelize.literal('`Payment`.`id`')), 'count'],
+      [Sequelize.fn('SUM', Sequelize.literal('`Payment`.`amount_paid`')), 'total']
     ],
-    group: [Sequelize.fn('DATE_FORMAT', Sequelize.col('Payment.payment_date'), '%Y-%m')],
-    order: [[Sequelize.fn('DATE_FORMAT', Sequelize.col('Payment.payment_date'), '%Y-%m'), 'ASC']]
+    group: [Sequelize.fn('DATE_FORMAT', Sequelize.literal('`Payment`.`payment_date`'), '%Y-%m')],
+    order: [[Sequelize.fn('DATE_FORMAT', Sequelize.literal('`Payment`.`payment_date`'), '%Y-%m'), 'ASC']],
+    raw: true
   });
+
+  // Results are already plain objects when using raw: true
+  const transformedCollectionByFeeType = collectionByFeeType.map(item => ({
+    fee_type: item.fee_type || 'Unknown',
+    count: parseInt(item.count) || 0,
+    total: parseFloat(item.total) || 0
+  }));
+
+  const transformedCollectionByClass = collectionByClass.map(item => ({
+    class: item.class || 'Unknown',
+    count: parseInt(item.count) || 0,
+    total: parseFloat(item.total) || 0
+  }));
+
+  const transformedMonthlyCollection = monthlyCollection.map(item => ({
+    month: item.month || 'Unknown',
+    count: parseInt(item.count) || 0,
+    total: parseFloat(item.total) || 0
+  }));
 
   res.json({
     success: true,
@@ -118,15 +117,12 @@ const getFeeCollectionReport = asyncHandler(async (req, res) => {
         totalCollection,
         totalTransactions: await Payment.count({
           where: whereClause,
-          include: [
-            { model: Student, as: 'student', where: studentWhereClause },
-            { model: FeeStructure, as: 'feeStructure', where: feeStructureWhereClause }
-          ]
+          include: baseIncludes
         })
       },
-      collectionByFeeType,
-      collectionByClass,
-      monthlyCollection
+      collectionByFeeType: transformedCollectionByFeeType,
+      collectionByClass: transformedCollectionByClass,
+      monthlyCollection: transformedMonthlyCollection
     }
   });
 });
@@ -145,22 +141,25 @@ const getOutstandingFeesReport = asyncHandler(async (req, res) => {
   if (studentClass) studentWhereClause.class = studentClass;
   if (is_overdue !== undefined) whereClause.is_overdue = is_overdue === 'true';
 
+  // Build include array with conditional where clauses
+  const includes = [
+    {
+      model: Student,
+      as: 'student',
+      attributes: ['id', 'student_id', 'first_name', 'last_name', 'class', 'section', 'roll_number', 'phone', 'email'],
+      ...(Object.keys(studentWhereClause).length > 0 && { where: studentWhereClause })
+    },
+    {
+      model: FeeStructure,
+      as: 'feeStructure',
+      attributes: ['id', 'class', 'fee_type', 'amount', 'academic_year', 'due_date', 'late_fee_amount'],
+      ...(Object.keys(feeStructureWhereClause).length > 0 && { where: feeStructureWhereClause })
+    }
+  ];
+
   const outstandingFees = await FeeBalance.findAll({
     where: whereClause,
-    include: [
-      {
-        model: Student,
-        as: 'student',
-        where: studentWhereClause,
-        attributes: ['id', 'student_id', 'first_name', 'last_name', 'class', 'section', 'roll_number', 'phone', 'email']
-      },
-      {
-        model: FeeStructure,
-        as: 'feeStructure',
-        where: feeStructureWhereClause,
-        attributes: ['id', 'class', 'fee_type', 'amount', 'academic_year', 'due_date', 'late_fee_amount']
-      }
-    ],
+    include: includes,
     order: [['due_date', 'ASC']]
   });
 
@@ -426,22 +425,25 @@ const getDefaultersReport = asyncHandler(async (req, res) => {
     whereClause.due_date = { [Op.lte]: cutoffDate };
   }
 
+  // Build include array with conditional where clauses
+  const defaulterIncludes = [
+    {
+      model: Student,
+      as: 'student',
+      attributes: ['id', 'student_id', 'first_name', 'last_name', 'class', 'section', 'roll_number', 'phone', 'email'],
+      ...(Object.keys(studentWhereClause).length > 0 && { where: studentWhereClause })
+    },
+    {
+      model: FeeStructure,
+      as: 'feeStructure',
+      attributes: ['id', 'class', 'fee_type', 'amount', 'academic_year', 'due_date', 'late_fee_amount'],
+      ...(Object.keys(feeStructureWhereClause).length > 0 && { where: feeStructureWhereClause })
+    }
+  ];
+
   const defaulters = await FeeBalance.findAll({
     where: whereClause,
-    include: [
-      {
-        model: Student,
-        as: 'student',
-        where: studentWhereClause,
-        attributes: ['id', 'student_id', 'first_name', 'last_name', 'class', 'section', 'roll_number', 'phone', 'email']
-      },
-      {
-        model: FeeStructure,
-        as: 'feeStructure',
-        where: feeStructureWhereClause,
-        attributes: ['id', 'class', 'fee_type', 'amount', 'academic_year', 'due_date', 'late_fee_amount']
-      }
-    ],
+    include: defaulterIncludes,
     order: [['due_date', 'ASC']]
   });
 
@@ -575,6 +577,89 @@ const generateCustomReport = asyncHandler(async (req, res) => {
   });
 });
 
+// @desc    Get reports summary (all key metrics in one call)
+// @route   GET /api/reports/summary
+// @access  Private (Admin, Accountant)
+const getReportsSummary = asyncHandler(async (req, res) => {
+  const { academic_year } = req.query;
+
+  // Get total collection
+  const totalCollection = await Payment.sum('amount_paid', {
+    where: {
+      is_void: false,
+      ...(academic_year && {
+        '$feeStructure.academic_year$': academic_year
+      })
+    },
+    include: [
+      {
+        model: FeeStructure,
+        as: 'feeStructure',
+        attributes: [],
+        ...(academic_year && { required: true })
+      }
+    ]
+  }) || 0;
+
+  // Get total transactions count
+  const totalTransactions = await Payment.count({
+    where: {
+      is_void: false,
+      ...(academic_year && {
+        '$feeStructure.academic_year$': academic_year
+      })
+    },
+    include: [
+      {
+        model: FeeStructure,
+        as: 'feeStructure',
+        attributes: [],
+        ...(academic_year && { required: true })
+      }
+    ]
+  });
+
+  // Get total outstanding amount
+  const totalOutstanding = await FeeBalance.sum('balance_amount', {
+    where: {
+      balance_amount: { [Op.gt]: 0 },
+      ...(academic_year && { academic_year })
+    }
+  }) || 0;
+
+  // Get defaulters count (students with overdue fees)
+  const defaultersCount = await FeeBalance.count({
+    where: {
+      balance_amount: { [Op.gt]: 0 },
+      is_overdue: true,
+      ...(academic_year && { academic_year })
+    },
+    distinct: true,
+    col: 'student_id'
+  });
+
+  // Get total expected (from fee balances)
+  const totalExpected = await FeeBalance.sum('total_amount', {
+    where: {
+      ...(academic_year && { academic_year })
+    }
+  }) || 0;
+
+  // Calculate collection rate
+  const collectionRate = totalExpected > 0 ? (totalCollection / totalExpected) * 100 : 0;
+
+  res.json({
+    success: true,
+    data: {
+      totalCollection: Math.round(totalCollection * 100) / 100,
+      totalTransactions,
+      totalOutstanding: Math.round(totalOutstanding * 100) / 100,
+      defaulters: defaultersCount,
+      collectionRate: Math.round(collectionRate * 100) / 100
+    }
+  });
+});
+
 module.exports = {
   getFeeCollectionReport,
   getOutstandingFeesReport,
@@ -582,5 +667,6 @@ module.exports = {
   getClassWiseCollectionReport,
   getMonthlyCollectionReport,
   getDefaultersReport,
+  getReportsSummary,
   generateCustomReport
 };

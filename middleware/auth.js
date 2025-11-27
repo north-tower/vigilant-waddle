@@ -83,8 +83,8 @@ const canAccessStudent = async (req, res, next) => {
         });
       }
 
-      // Check if this is the student's own record or their parent's record
-      if (student.id === userId || student.parent_id === userId) {
+      // Check if this is the student's own record (via user_id) or their parent's record
+      if (student.user_id === userId || student.parent_id === userId) {
         return next();
       }
 

@@ -12,8 +12,21 @@ const startServer = async () => {
     
     // Sync database models
     if (process.env.NODE_ENV === 'development') {
-      await sequelize.sync({ alter: true });
-      logger.info('Database synchronized successfully');
+      try {
+        // Try to sync with alter, but fall back to no-alter if it fails
+        await sequelize.sync({ alter: true });
+        logger.info('Database synchronized successfully');
+      } catch (error) {
+        // If we get "too many keys" error, sync without alter
+        if (error.message && error.message.includes('Too many keys')) {
+          logger.warn('⚠️  Too many keys detected. Syncing without alter mode.');
+          logger.warn('💡 Consider cleaning up redundant indexes using: node scripts/cleanupIndexes.js');
+          await sequelize.sync({ alter: false });
+          logger.info('Database synchronized (without alter mode)');
+        } else {
+          throw error;
+        }
+      }
     }
     
     // Start server

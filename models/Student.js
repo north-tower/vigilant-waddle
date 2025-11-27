@@ -70,6 +70,16 @@ const Student = sequelize.define('Student', {
     type: DataTypes.TEXT,
     allowNull: true
   },
+  user_id: {
+    type: DataTypes.INTEGER,
+    allowNull: true,
+    unique: true,
+    references: {
+      model: 'users',
+      key: 'id'
+    },
+    comment: 'Links to User account for student login'
+  },
   parent_id: {
     type: DataTypes.INTEGER,
     allowNull: true,

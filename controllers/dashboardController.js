@@ -261,7 +261,8 @@ const getCollectionTrends = asyncHandler(async (req, res) => {
       [Sequelize.fn('SUM', Sequelize.col('Payment.amount_paid')), 'total']
     ],
     group: [Sequelize.fn('DATE', Sequelize.col('Payment.payment_date'))],
-    order: [[Sequelize.fn('DATE', Sequelize.col('Payment.payment_date')), 'ASC']]
+    order: [[Sequelize.fn('DATE', Sequelize.col('Payment.payment_date')), 'ASC']],
+    raw: true
   });
 
   // Get collection by payment method
@@ -277,7 +278,8 @@ const getCollectionTrends = asyncHandler(async (req, res) => {
       [Sequelize.fn('COUNT', Sequelize.col('Payment.id')), 'count'],
       [Sequelize.fn('SUM', Sequelize.col('Payment.amount_paid')), 'total']
     ],
-    group: ['payment_method']
+    group: ['payment_method'],
+    raw: true
   });
 
   // Get collection by fee type
@@ -295,7 +297,7 @@ const getCollectionTrends = asyncHandler(async (req, res) => {
       {
         model: FeeStructure,
         as: 'feeStructure',
-        attributes: ['fee_type']
+        attributes: [] // Don't select any attributes from the included model
       }
     ],
     attributes: [
@@ -303,7 +305,8 @@ const getCollectionTrends = asyncHandler(async (req, res) => {
       [Sequelize.fn('COUNT', Sequelize.col('Payment.id')), 'count'],
       [Sequelize.fn('SUM', Sequelize.col('Payment.amount_paid')), 'total']
     ],
-    group: ['feeStructure.fee_type']
+    group: [Sequelize.col('feeStructure.fee_type')],
+    raw: true
   });
 
   // Get class-wise collection
@@ -318,7 +321,7 @@ const getCollectionTrends = asyncHandler(async (req, res) => {
       {
         model: Student,
         as: 'student',
-        attributes: ['class']
+        attributes: [] // Don't select any attributes from the included model
       }
     ],
     attributes: [
@@ -326,7 +329,8 @@ const getCollectionTrends = asyncHandler(async (req, res) => {
       [Sequelize.fn('COUNT', Sequelize.col('Payment.id')), 'count'],
       [Sequelize.fn('SUM', Sequelize.col('Payment.amount_paid')), 'total']
     ],
-    group: ['student.class']
+    group: [Sequelize.col('student.class')],
+    raw: true
   });
 
   res.json({
