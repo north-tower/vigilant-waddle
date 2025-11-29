@@ -3,10 +3,10 @@ require('dotenv').config();
 
 const sequelize = new Sequelize(
   process.env.DB_NAME || 'fee_management',
-  process.env.DB_USER || 'mhki',
-  process.env.DB_PASSWORD || '12345678',
+  process.env.DB_USER || 'fee_user',
+  process.env.DB_PASSWORD || 'your_secure_password',
   {
-    host: process.env.DB_HOST || 'localhost',
+    host: process.env.DB_HOST || 'db',
     dialect: 'mysql',
     logging: process.env.NODE_ENV === 'development' ? console.log : false,
     pool: {
@@ -25,13 +25,8 @@ const sequelize = new Sequelize(
 
 // Test database connection
 const testConnection = async () => {
-  try {
-    await sequelize.authenticate();
-    console.log('✅ Database connection has been established successfully.');
-  } catch (error) {
-    console.error('❌ Unable to connect to the database:', error);
-    process.exit(1);
-  }
+  await sequelize.authenticate();
+  console.log('✅ Database connection has been established successfully.');
 };
 
 module.exports = { sequelize, testConnection };

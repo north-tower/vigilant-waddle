@@ -4,11 +4,28 @@ const { logger } = require('./middleware/errorHandler');
 
 const PORT = process.env.PORT || 5000;
 
+// Wait for database to be ready with retries
+const waitForDatabase = async (maxRetries = 30, delay = 2000) => {
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      await testConnection();
+      logger.info('✅ Database connection established');
+      return true;
+    } catch (error) {
+      if (i === maxRetries - 1) {
+        throw error;
+      }
+      logger.warn(`⏳ Waiting for database... (attempt ${i + 1}/${maxRetries})`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+};
+
 // Test database connection and start server
 const startServer = async () => {
   try {
-    // Test database connection
-    await testConnection();
+    // Wait for database to be ready
+    await waitForDatabase();
     
     // Sync database models
     if (process.env.NODE_ENV === 'development') {
