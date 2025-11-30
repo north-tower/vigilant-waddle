@@ -3,8 +3,8 @@ require('dotenv').config();
 
 const sequelize = new Sequelize(
   process.env.DB_NAME || 'fee_management',
-  process.env.DB_USER || 'fee_user',
-  process.env.DB_PASSWORD || 'your_secure_password',
+  process.env.DB_USER || 'root',
+  process.env.DB_PASSWORD || '',
   {
     host: process.env.DB_HOST || 'localhost',
     dialect: 'mysql',
