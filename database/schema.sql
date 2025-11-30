@@ -36,6 +36,7 @@ CREATE TABLE students (
     email VARCHAR(100) NULL,
     address TEXT NULL,
     parent_id INT NULL,
+    user_id INT NULL UNIQUE,
     admission_date DATE NOT NULL DEFAULT (CURRENT_DATE),
     status ENUM('active', 'inactive', 'graduated', 'transferred') NOT NULL DEFAULT 'active',
     date_of_birth DATE NULL,
@@ -47,12 +48,14 @@ CREATE TABLE students (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     
     FOREIGN KEY (parent_id) REFERENCES users(id) ON DELETE SET NULL,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
     UNIQUE KEY unique_class_section_roll (class, section, roll_number),
     INDEX idx_student_id (student_id),
     INDEX idx_class (class),
     INDEX idx_section (section),
     INDEX idx_status (status),
-    INDEX idx_parent_id (parent_id)
+    INDEX idx_parent_id (parent_id),
+    INDEX idx_user_id (user_id)
 );
 
 -- Fee structures table
