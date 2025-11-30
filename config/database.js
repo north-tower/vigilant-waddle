@@ -6,7 +6,7 @@ const sequelize = new Sequelize(
   process.env.DB_USER || 'fee_user',
   process.env.DB_PASSWORD || 'your_secure_password',
   {
-    host: process.env.DB_HOST || 'loacalhost',
+    host: process.env.DB_HOST || 'localhost',
     dialect: 'mysql',
     logging: process.env.NODE_ENV === 'development' ? console.log : false,
     pool: {
