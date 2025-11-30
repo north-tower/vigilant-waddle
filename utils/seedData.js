@@ -8,7 +8,7 @@ const seedData = async () => {
     console.log('🌱 Starting data seeding...');
 
     // Clear existing data (in development only)
-    if (process.env.NODE_ENV === 'development') {
+    if (process.env.NODE_ENV === 'production') {
       console.log('🗑️  Clearing existing data...');
       await Payment.destroy({ where: {} });
       await FeeBalance.destroy({ where: {} });
